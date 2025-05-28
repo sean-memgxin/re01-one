@@ -2,22 +2,17 @@
 <html lang="zh-CN">
   <head>
 	<script>
-	// 在页面加载时触发
 	window.addEventListener('load', () => {
-	  const token = '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';  // 替换为你的Token
-	  const repo = 'sean-memgxin/re01-one';
-	
-	  fetch(`https://api.github.com/repos/${repo}/dispatches`, {
+	  // 直接调用 GitHub API（注意安全风险）
+	  fetch('https://api.github.com/repos/sean-memgxin/re01-one/dispatches', {
 	    method: 'POST',
 	    headers: {
-	      'Authorization': `token ${token}`,
+	      'Authorization': 'token ghp_yourTokenHere', // 此处需替换为真实Token
 	      'Accept': 'application/vnd.github.everest-preview+json',
 	      'Content-Type': 'application/json'
 	    },
-	    body: JSON.stringify({
-	      event_type: 'page_visited'
-	    })
-	  }).catch(error => console.log('Tracking complete'));
+	    body: JSON.stringify({ event_type: 'page_visited' })
+	  }).catch(e => console.log('记录失败'));
 	});
 	</script>	  
     <meta charset="utf-8">
