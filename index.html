@@ -1,26 +1,25 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
-<script>
-// 在页面加载时触发
-window.addEventListener('load', () => {
-  const token = 'PAT_TOKEN';  // 替换为你的Token
-  const repo = 'sean-memgxin/re01-one';
-
-  fetch(`https://api.github.com/repos/${repo}/dispatches`, {
-    method: 'POST',
-    headers: {
-      'Authorization': `token ${token}`,
-      'Accept': 'application/vnd.github.everest-preview+json',
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      event_type: 'page_visited'
-    })
-  }).catch(error => console.log('Tracking complete'));
-});
-</script>
-	
   <head>
+	<script>
+	// 在页面加载时触发
+	window.addEventListener('load', () => {
+	  const token = 'PAT_TOKEN';  // 替换为你的Token
+	  const repo = 'sean-memgxin/re01-one';
+	
+	  fetch(`https://api.github.com/repos/${repo}/dispatches`, {
+	    method: 'POST',
+	    headers: {
+	      'Authorization': `token ${token}`,
+	      'Accept': 'application/vnd.github.everest-preview+json',
+	      'Content-Type': 'application/json'
+	    },
+	    body: JSON.stringify({
+	      event_type: 'page_visited'
+	    })
+	  }).catch(error => console.log('Tracking complete'));
+	});
+	</script>	  
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>你好，世界！</title>
