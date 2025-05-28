@@ -1,0 +1,23 @@
+name: Log Page Visit
+on:
+  repository_dispatch:
+    types: [page_visited]
+
+jobs:
+  log-visit:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Append time
+      run: |
+        echo "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" >> visit-times.txt
+
+    - name: Commit changes
+      run: |
+        git config --global user.name "GitHub Actions"
+        git config --global user.email "actions@github.com"
+        git add visit-times.txt
+        git commit -m "[Auto] 记录新访问时间"
+        git push
