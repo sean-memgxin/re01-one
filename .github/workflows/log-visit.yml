@@ -1,4 +1,4 @@
-name: Visit Logger
+name: Visit Time Logger
 on:
   repository_dispatch:
     types: [page_visited]
@@ -7,10 +7,10 @@ jobs:
   log-visit:
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: write  # 必须的写入权限
     
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v4  # 拉取代码
 
     - name: 记录时间
       run: |
@@ -18,7 +18,8 @@ jobs:
 
     - name: 提交变更
       run: |
-        git config --global user.name "Auto Logger"
+        git config --global user.name "GitHub Actions"
+        git config --global user.email "actions@github.com"
         git add visit-times.txt
         git commit -m "📅 自动记录访问时间"
         git push
