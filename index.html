@@ -3,23 +3,19 @@
   <head>
 	<script>
 	window.addEventListener('load', () => {
-	  // 替换为你的仓库信息和PAT
-	  const token = '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';  // ⚠️ 注意：这会导致PAT暴露！
-	  const repo = 'sean-memgxin/re01-one';
-	  
-	  fetch(`https://api.github.com/repos/${repo}/dispatches`, {
+	  // 调用 GitHub Actions 的触发端点（需配合后端）
+	  fetch('https://api.github.com/repos/sean-memgxin/re01-one/dispatches', {
 	    method: 'POST',
 	    headers: {
-	      'Authorization': `token ${token}`,
+	      'Authorization': 'token ${{ secrets.PAT_TOKEN }}', // 通过 GitHub Secrets 注入
 	      'Accept': 'application/vnd.github.everest-preview+json',
 	      'Content-Type': 'application/json'
 	    },
-	    body: JSON.stringify({
-	      event_type: 'page_visited'
-	    })
+	    body: JSON.stringify({ event_type: 'page_visited' })
 	  }).catch(e => console.log('记录失败（可忽略）'));
 	});
 	</script>
+
 	  
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1" />
