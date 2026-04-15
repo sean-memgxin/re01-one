@@ -1220,13 +1220,6 @@
             }
         }
 
-        // IndexedDB 配置（保留用于工作目录权限恢复）
-        const DB_NAME = 'MarkdownWorkspaceDB';
-        const DB_VERSION = 2;
-        const STORE_NAME = 'directoryHandles';
-        const FUNC_STORE = 'functionData';
-        const HANDLE_KEY = 'workspaceDir';
-        
         const editor = document.getElementById('editor');
         const saveStatus = document.getElementById('saveStatus');
         const currentFileLabel = document.getElementById('currentFileLabel');
@@ -1259,7 +1252,6 @@
         let fileList = [];
         let activeFileItem = null;
         let workspaceDirHandle = null;
-        let db = null;
         
         // 函数数据存储（从JSON文件获取）
         let functionData = {};
@@ -1530,32 +1522,17 @@
             showToast(`设置初始值: ${value}`, 1500);
         }
 
-        // 保存目录句柄
+        // 保存目录名称（使用 localStorage）
         async function saveDirectoryHandle(handle) {
-            if (!db) await initDB();
-            
-            return new Promise((resolve, reject) => {
-                const transaction = db.transaction([STORE_NAME], 'readwrite');
-                const store = transaction.objectStore(STORE_NAME);
-                const request = store.put(handle, HANDLE_KEY);
-                
-                request.onerror = () => reject(request.error);
-                request.onsuccess = () => resolve();
-            });
+            localStorage.setItem('workspaceName', handle.name);
+            return Promise.resolve();
         }
 
-        // 加载目录句柄
+        // 加载目录名称
         async function loadDirectoryHandle() {
-            if (!db) await initDB();
-            
-            return new Promise((resolve, reject) => {
-                const transaction = db.transaction([STORE_NAME], 'readonly');
-                const store = transaction.objectStore(STORE_NAME);
-                const request = store.get(HANDLE_KEY);
-                
-                request.onerror = () => reject(request.error);
-                request.onsuccess = () => resolve(request.result || null);
-            });
+            const savedName = localStorage.getItem('workspaceName');
+            if (!savedName) return null;
+            return { name: savedName };
         }
 
         // 验证并请求权限
