@@ -434,25 +434,8 @@
             padding: 0 16px;
         }
 
-        .tab-item {
-            padding: 10px 20px;
-            font-size: 14px;
-            font-weight: 500;
-            color: #64748b;
-            cursor: pointer;
-            border-bottom: 2px solid transparent;
-            transition: all 0.15s;
-            margin-bottom: -1px;
-        }
-
-        .tab-item:hover {
-            color: #2563eb;
-            background: #f0f4ff;
-        }
-
-        .tab-item.active {
-            color: #2563eb;
-            border-bottom-color: #2563eb;
+        .tab-bar.hidden {
+            display: none;
         }
 
         .tab-content {
@@ -1056,12 +1039,12 @@
             <div class="editor-container">
                 <!-- 右侧页签区 -->
                 <div class="right-pane" style="flex: 1;">
-                    <div class="tab-bar">
+                    <div class="tab-bar" id="mainTabBar">
                         <div class="tab-item active" data-tab="content">📄 内容</div>
                         <div class="tab-item" data-tab="function">📊 函数</div>
                     </div>
                     
-                    <div class="tab-content">
+                    <div class="tab-content" id="mainTabContent">
                         <!-- 内容页签 -->
                         <div class="tab-pane active" id="tab-content">
                             <div class="document-editor">
@@ -1778,6 +1761,13 @@
                 return;
             }
             
+            // 检查是否在配置面板模式，如果是则切回文档模式
+            const configPanel = document.getElementById('configPanelContainer');
+            if (configPanel) {
+                window.closeConfigPanel();
+                switchToTab('content');
+            }
+            
             try {
                 const fileHandle = await workspaceDirHandle.getFileHandle(fileName);
                 const file = await fileHandle.getFile();
@@ -1937,6 +1927,10 @@
                     configPanel.innerHTML = renderDataConfigPanel();
                     break;
             }
+            
+            // 隐藏Tab栏
+            document.getElementById('mainTabBar').classList.add('hidden');
+            document.getElementById('mainTabContent').style.display = 'none';
         };
         
         // 渲染函数配置面板
@@ -2217,6 +2211,10 @@
             
             if (editor) editor.style.display = 'block';
             if (configPanel) configPanel.remove();
+            
+            // 显示Tab栏
+            document.getElementById('mainTabBar').classList.remove('hidden');
+            document.getElementById('mainTabContent').style.display = 'block';
         };
         
         // 导出配置
@@ -2269,14 +2267,24 @@
             tabs.forEach(tab => {
                 tab.addEventListener('click', () => {
                     const targetTab = tab.dataset.tab;
-                    
-                    tabs.forEach(t => t.classList.remove('active'));
-                    panes.forEach(p => p.classList.remove('active'));
-                    
-                    tab.classList.add('active');
-                    document.getElementById(`tab-${targetTab}`).classList.add('active');
+                    switchToTab(targetTab);
                 });
             });
+        }
+        
+        // 切换到指定Tab
+        function switchToTab(targetTab) {
+            const tabs = document.querySelectorAll('.tab-item');
+            const panes = document.querySelectorAll('.tab-pane');
+            
+            tabs.forEach(t => t.classList.remove('active'));
+            panes.forEach(p => p.classList.remove('active'));
+            
+            const targetTabEl = document.querySelector(`.tab-item[data-tab="${targetTab}"]`);
+            const targetPaneEl = document.getElementById(`tab-${targetTab}`);
+            
+            if (targetTabEl) targetTabEl.classList.add('active');
+            if (targetPaneEl) targetPaneEl.classList.add('active');
         }
 
         async function initialize() {
