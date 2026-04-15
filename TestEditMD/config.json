@@ -1,0 +1,41 @@
+{
+  "version": "1.0",
+  "lastModified": "2026-04-15T00:00:00.000Z",
+  "workspace": {
+    "lastPath": "",
+    "autoRestore": true
+  },
+  "functionConfig": {
+    "templates": [
+      {"id": "add_1000", "name": "+1000", "type": "add", "value": 1000, "color": "#059669", "icon": "⬆️"},
+      {"id": "add_100", "name": "+100", "type": "add", "value": 100, "color": "#2563eb", "icon": "📈"},
+      {"id": "add_10", "name": "+10", "type": "add", "value": 10, "color": "#0891b2", "icon": "➕"},
+      {"id": "add_1", "name": "+1", "type": "add", "value": 1, "color": "#0284c7", "icon": "🔹"},
+      {"id": "sub_1", "name": "-1", "type": "sub", "value": 1, "color": "#ea580c", "icon": "🔸"},
+      {"id": "sub_10", "name": "-10", "type": "sub", "value": 10, "color": "#dc2626", "icon": "➖"},
+      {"id": "sub_100", "name": "-100", "type": "sub", "value": 100, "color": "#b91c1c", "icon": "📉"},
+      {"id": "mul_2", "name": "×2", "type": "mul", "value": 2, "color": "#7c3aed", "icon": "✖️"},
+      {"id": "div_2", "name": "÷2", "type": "div", "value": 2, "color": "#db2777", "icon": "➗"},
+      {"id": "set_0", "name": "归零", "type": "set", "value": 0, "color": "#475569", "icon": "🔄"}
+    ],
+    "quickButtons": ["add_1000", "add_100", "add_1", "sub_1", "sub_100"],
+    "defaults": {
+      "initialValue": 0,
+      "autoSave": true,
+      "saveDelay": 1000,
+      "maxHistoryItems": 100
+    }
+  },
+  "uiConfig": {
+    "theme": "light",
+    "fontSize": 14,
+    "editorFontFamily": "'JetBrains Mono', monospace",
+    "showFileFunctionBadge": true,
+    "sidebarWidth": 280,
+    "defaultTab": "content"
+  },
+  "shortcuts": {
+    "save": "Ctrl+S",
+    "newFile": "Ctrl+N"
+  }
+}
