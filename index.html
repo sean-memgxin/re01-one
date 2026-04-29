@@ -1390,6 +1390,7 @@
         const historyList = document.getElementById('historyList');
 
         let currentFileHandle = null;
+        let _saving = false;
         let currentFileName = '';
         let lastContent = '';
         let autoSaveTimer = null;
@@ -2116,6 +2117,7 @@
         };
 
         async function saveCurrentFile() {
+            if (_saving) return;
             if (!currentFileHandle) {
                 if (editor.value.trim()) {
                     await createNewFileWithContent(editor.value);
@@ -2125,6 +2127,7 @@
                 return;
             }
             
+            _saving = true;
             const content = editor.value;
             try {
                 const writable = await currentFileHandle.createWritable();
@@ -2132,14 +2135,20 @@
                 await writable.close();
                 lastContent = content;
                 setStatus(`💾 已保存 ${currentFileName}`);
-                if (!fileList.includes(currentFileName)) {
-                    await refreshFileList();
-                }
             } catch (err) {
                 console.error('保存失败', err);
                 setStatus('❌ 保存失败', true);
                 showToast('保存失败: ' + err.message);
             }
+            
+            // 刷新列表不放在 try 里，避免已保存成功但列表刷新失败时误报
+            try {
+                if (!fileList.includes(currentFileName)) {
+                    await refreshFileList();
+                }
+            } catch { /* 列表刷新失败不影响保存结果 */ }
+            
+            _saving = false;
         }
 
         function scheduleAutoSave() {
