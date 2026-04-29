@@ -946,6 +946,9 @@
             <span id="workspaceText">正在初始化...</span>
         </div>
         <div class="header-actions">
+            <button class="btn btn-primary" id="githubConnectBtn" title="连接GitHub仓库以读取和保存文件" style="background:#24292f; border-color:#24292f; color:white;">
+                🔗 连接GitHub
+            </button>
             <button class="btn btn-warning" id="restoreWorkspaceBtn" title="恢复上次使用的工作区">
                 🔄 恢复工作区
             </button>
@@ -1156,9 +1159,124 @@
             async requestPermission() { return 'granted'; }
         }
 
+        // GitHub API 文件系统 —— 直接读写仓库文件
+        function toBase64(str) {
+            const bytes = new TextEncoder().encode(str);
+            return btoa(String.fromCharCode(...bytes));
+        }
+        function fromBase64(b64) {
+            const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+            return new TextDecoder().decode(bytes);
+        }
+
+        class GitHubFileHandle {
+            constructor(fileName, content, sha, dirHandle) {
+                this.name = fileName;
+                this.kind = 'file';
+                this._content = content;
+                this._sha = sha;
+                this._dirHandle = dirHandle;
+            }
+            async getFile() { return { text: async () => this._content }; }
+            async createWritable() {
+                const fn = this.name, dh = this._dirHandle, sha = this._sha;
+                let written = '';
+                return {
+                    write: async (c) => { written = typeof c === 'string' ? c : ''; },
+                    close: async () => {
+                        const newSha = await dh._saveFile(fn, written, sha);
+                        this._sha = newSha;
+                        this._content = written;
+                    }
+                };
+            }
+        }
+
+        class GitHubDirHandle {
+            constructor(owner, repo, token, branch) {
+                this.owner = owner;
+                this.repo = repo;
+                this.token = token;
+                this.branch = branch || 'main';
+                this.name = `${owner}/${repo}`;
+                this._fileCache = null;
+                this._cacheTime = 0;
+            }
+            _headers() {
+                return {
+                    'Authorization': 'token ' + this.token,
+                    'Accept': 'application/vnd.github.v3+json'
+                };
+            }
+            async _fetchFileList() {
+                if (this._fileCache && Date.now() - this._cacheTime < 10000) return this._fileCache;
+                const url = `https://api.github.com/repos/${this.owner}/${this.repo}/contents/?ref=${this.branch}`;
+                const resp = await fetch(url, { headers: this._headers() });
+                if (!resp.ok) throw new Error('GitHub API error: ' + resp.status);
+                const data = await resp.json();
+                if (!Array.isArray(data)) throw new Error('Unexpected response');
+                this._fileCache = data;
+                this._cacheTime = Date.now();
+                return data;
+            }
+            async getFileHandle(fileName, opts = {}) {
+                const url = `https://api.github.com/repos/${this.owner}/${this.repo}/contents/${encodeURIComponent(fileName)}?ref=${this.branch}`;
+                const resp = await fetch(url, { headers: this._headers() });
+                if (resp.status === 404) {
+                    if (opts.create) return new GitHubFileHandle(fileName, '', null, this);
+                    throw new Error('File not found: ' + fileName);
+                }
+                if (!resp.ok) throw new Error('GitHub API error: ' + resp.status);
+                const data = await resp.json();
+                const content = fromBase64(data.content);
+                return new GitHubFileHandle(data.name, content, data.sha, this);
+            }
+            async *values() {
+                const data = await this._fetchFileList();
+                for (const item of data) {
+                    if (item.type === 'file' && item.name.match(/\.(md|markdown|mdown|txt)$/i)) {
+                        yield new GitHubFileHandle(item.name, '', item.sha, this);
+                    }
+                }
+            }
+            async _saveFile(fileName, content, sha) {
+                const url = `https://api.github.com/repos/${this.owner}/${this.repo}/contents/${encodeURIComponent(fileName)}`;
+                const body = {
+                    message: 'Update ' + fileName,
+                    content: toBase64(content),
+                    branch: this.branch
+                };
+                if (sha) body.sha = sha;
+                const resp = await fetch(url, {
+                    method: 'PUT',
+                    headers: { ...this._headers(), 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+                if (!resp.ok) {
+                    const err = await resp.json().catch(() => ({}));
+                    throw new Error(err.message || 'Save failed: ' + resp.status);
+                }
+                const data = await resp.json();
+                this._fileCache = null;
+                this._cacheTime = 0;
+                return data.content.sha;
+            }
+            async queryPermission() { return 'granted'; }
+            async requestPermission() { return 'granted'; }
+        }
+
+        // GitHub token 管理
+        const GITHUB_TOKEN_KEY = 'github_pat';
+        function getSavedToken() { return localStorage.getItem(GITHUB_TOKEN_KEY) || ''; }
+        function saveToken(token) { localStorage.setItem(GITHUB_TOKEN_KEY, token); }
+        function clearToken() { localStorage.removeItem(GITHUB_TOKEN_KEY); }
+
         // 判断是否支持 File System Access API
         const supportsFSA = typeof window.showDirectoryPicker === 'function';
         let isOnlineMode = true;
+        let githubMode = false;
+        const GITHUB_OWNER = 'sean-memgxin';
+        const GITHUB_REPO = 're01-one';
 
         // ConfigManager 类
         class ConfigManager {
@@ -1256,6 +1374,7 @@
         const workspaceName = document.getElementById('workspaceName');
         const refreshDirBtn = document.getElementById('refreshDirBtn');
         const restoreWorkspaceBtn = document.getElementById('restoreWorkspaceBtn');
+        const githubConnectBtn = document.getElementById('githubConnectBtn');
         const createNewFileBtn = document.getElementById('createNewFileBtn');
         const manualSaveBtn = document.getElementById('manualSaveBtn');
         const mainFolderToggle = document.getElementById('mainFolderToggle');
@@ -1602,7 +1721,11 @@
             saveWorkspaceMode();
             saveWorkspaceName(handle.name);
             await setWorkspace(handle);
-            showToast('☁️ 已进入在线模式，数据存储在浏览器中', 2500);
+            if (!getSavedToken()) {
+                showToast('☁️ 在线模式 | 💡 点击「连接GitHub」可直接读写仓库文件', 4000);
+            } else {
+                showToast('☁️ 已进入在线模式，数据存储在浏览器中', 2500);
+            }
         }
 
         // 设置工作区 (统一入口)
@@ -1610,9 +1733,17 @@
             workspaceDirHandle = handle;
             workspaceName.textContent = handle.name;
             workspaceText.textContent = handle.name;
-            workspaceIcon.textContent = isOnlineMode ? '☁️' : '✅';
+            if (githubMode) {
+                workspaceIcon.textContent = '🐙';
+                workspaceSelector.title = 'GitHub 仓库模式 — 点击可切换';
+            } else if (isOnlineMode) {
+                workspaceIcon.textContent = '☁️';
+                workspaceSelector.title = '在线工作区 (数据存储在浏览器) 点击可切换本地文件夹';
+            } else {
+                workspaceIcon.textContent = '✅';
+                workspaceSelector.title = '本地工作区已连接 (点击可更换)';
+            }
             workspaceSelector.classList.add('auto-restored');
-            workspaceSelector.title = isOnlineMode ? '在线工作区 (数据存储在浏览器) 点击可切换本地文件夹' : '本地工作区已连接 (点击可更换)';
             
             appConfigManager = new ConfigManager(workspaceDirHandle);
             await appConfigManager.loadConfig();
@@ -1623,9 +1754,15 @@
             updateSummary();
             updateFileListWithFuncCount();
             renderQuickButtons();
-            setStatus(isOnlineMode ? '☁️ 在线模式' : '✅ 本地工作区已连接');
+            if (githubMode) {
+                setStatus('🐙 GitHub 已连接: ' + GITHUB_OWNER + '/' + GITHUB_REPO);
+            } else if (isOnlineMode) {
+                setStatus('☁️ 在线模式');
+            } else {
+                setStatus('✅ 本地工作区已连接');
+            }
             createNewFileBtn.disabled = false;
-            if (!isOnlineMode) {
+            if (!isOnlineMode && !githubMode) {
                 restoreWorkspaceBtn.style.display = 'inline-block';
             }
         }
@@ -1712,8 +1849,99 @@
             }
         }
 
+        // GitHub 连接
+        async function connectGitHub(token) {
+            if (!token) {
+                showGitHubTokenModal();
+                return;
+            }
+            try {
+                const handle = new GitHubDirHandle(GITHUB_OWNER, GITHUB_REPO, token, 'main');
+                // 测试连接
+                await handle._fetchFileList();
+                saveToken(token);
+                githubMode = true;
+                isOnlineMode = false;
+                saveWorkspaceMode();
+                await setWorkspace(handle);
+                workspaceIcon.textContent = '🐙';
+                showToast('🐙 已连接 GitHub: ' + GITHUB_OWNER + '/' + GITHUB_REPO, 2500);
+            } catch (err) {
+                showToast('❌ GitHub 连接失败: ' + err.message);
+                clearToken();
+                githubMode = false;
+            }
+        }
+
+        function showGitHubTokenModal() {
+            const existing = document.getElementById('githubTokenModal');
+            if (existing) existing.remove();
+            
+            const html = `
+                <div class="modal-overlay" id="githubTokenModal" onclick="if(event.target===this)document.getElementById('githubTokenModal').remove()">
+                    <div class="modal-content" onclick="event.stopPropagation()">
+                        <h3>🐙 连接 GitHub 仓库</h3>
+                        <p style="font-size:13px; color:#64748b; margin-bottom:16px;">
+                            输入 Personal Access Token 以读写仓库文件。<br>
+                            <a href="https://github.com/settings/tokens" target="_blank" style="color:#2563eb;">
+                            去创建 Token →
+                            </a>
+                            (需要 <b>repo</b> 权限)
+                        </p>
+                        <div class="modal-form">
+                            <label>Token：<input type="password" id="githubTokenInput" placeholder="ghp_xxxxxxxxxxxx" style="flex:1; padding:8px; border:1px solid #d1d9e6; border-radius:4px;"></label>
+                        </div>
+                        <p style="font-size:11px; color:#94a3b8; margin-top:8px;">Token 仅存储在浏览器本地，不会上传到任何服务器</p>
+                        <div class="modal-actions">
+                            <button class="btn btn-primary" id="githubConnectConfirm">连接</button>
+                            <button class="btn" onclick="document.getElementById('githubTokenModal').remove()">取消</button>
+                            ${getSavedToken() ? '<button class="btn btn-warning" id="githubDisconnectBtn">断开</button>' : ''}
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.body.insertAdjacentHTML('beforeend', html);
+            
+            document.getElementById('githubConnectConfirm').addEventListener('click', () => {
+                const token = document.getElementById('githubTokenInput').value.trim();
+                if (!token) { showToast('请输入 Token'); return; }
+                document.getElementById('githubTokenModal').remove();
+                connectGitHub(token);
+            });
+            
+            const disconnectBtn = document.getElementById('githubDisconnectBtn');
+            if (disconnectBtn) {
+                disconnectBtn.addEventListener('click', () => {
+                    clearToken();
+                    document.getElementById('githubTokenModal').remove();
+                    githubMode = false;
+                    createOnlineWorkspace();
+                    showToast('已断开 GitHub 连接');
+                });
+            }
+        }
+        window.showGitHubTokenModal = showGitHubTokenModal;
+
         // 检查保存的工作区
         async function checkSavedWorkspace() {
+            // 优先尝试 GitHub 连接
+            const savedToken = getSavedToken();
+            if (savedToken) {
+                try {
+                    const handle = new GitHubDirHandle(GITHUB_OWNER, GITHUB_REPO, savedToken, 'main');
+                    await handle._fetchFileList();
+                    githubMode = true;
+                    isOnlineMode = false;
+                    await setWorkspace(handle);
+                    workspaceIcon.textContent = '🐙';
+                    return;
+                } catch (err) {
+                    console.warn('GitHub 连接失败，回退到在线模式:', err.message);
+                    clearToken();
+                    githubMode = false;
+                }
+            }
+            
             const savedMode = localStorage.getItem('workspaceMode');
             const savedName = localStorage.getItem('workspaceName');
             
@@ -2379,6 +2607,7 @@
             // 绑定事件
             workspaceSelector.addEventListener('click', handleSelectWorkspace);
             restoreWorkspaceBtn.addEventListener('click', restoreWorkspace);
+            githubConnectBtn.addEventListener('click', () => connectGitHub(getSavedToken()));
             editor.addEventListener('input', onEditorInput);
             manualSaveBtn.addEventListener('click', handleManualSave);
             createNewFileBtn.addEventListener('click', handleCreateNew);
