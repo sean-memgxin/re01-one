@@ -1234,7 +1234,7 @@
             async *values() {
                 const data = await this._fetchFileList();
                 for (const item of data) {
-                    if (item.type === 'file' && item.name.match(/\.(md|markdown|mdown|txt)$/i)) {
+                    if (item.type === 'file' && item.name.match(/\.md$/i)) {
                         yield new GitHubFileHandle(item.name, '', item.sha, this);
                     }
                 }
@@ -1997,7 +1997,7 @@
             const mdFiles = [];
             try {
                 for await (const entry of workspaceDirHandle.values()) {
-                    if (entry.kind === 'file' && entry.name.match(/\.(md|markdown|mdown|txt)$/i)) {
+                    if (entry.kind === 'file' && entry.name.match(/\.md$/i)) {
                         mdFiles.push(entry.name);
                     }
                 }
