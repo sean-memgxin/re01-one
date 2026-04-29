@@ -1669,34 +1669,19 @@
 
         // 保存工作区模式
         function saveWorkspaceMode() {
-            localStorage.setItem('workspaceMode', isOnlineMode ? 'online' : 'local');
+            if (githubMode) {
+                localStorage.setItem('workspaceMode', 'github');
+            } else if (isOnlineMode) {
+                localStorage.setItem('workspaceMode', 'online');
+            } else {
+                localStorage.setItem('workspaceMode', 'local');
+            }
         }
         function saveWorkspaceName(name) {
             localStorage.setItem('workspaceName', name);
         }
 
-        // 加载目录名称
-        async function loadDirectoryHandle() {
-            const savedName = localStorage.getItem('workspaceName');
-            if (!savedName) return null;
-            return { name: savedName };
-        }
-
-        // 验证并请求权限
-        async function verifyAndRequestPermission(handle) {
-            try {
-                const options = { mode: 'readwrite' };
-                const currentPermission = await handle.queryPermission(options);
-                if (currentPermission === 'granted') return true;
-                const newPermission = await handle.requestPermission(options);
-                return newPermission === 'granted';
-            } catch (err) {
-                console.warn('权限请求失败:', err);
-                return false;
-            }
-        }
-
-        // 请求本地目录 (File System Access API)
+        // 请求本地目录 (File System Access API)，使用固定 id 实现刷新后静默恢复
         async function requestLocalDirectoryAccess() {
             try {
                 const dirHandle = await window.showDirectoryPicker({
@@ -1714,10 +1699,26 @@
             }
         }
 
+        // 尝试静默恢复本地目录（不弹出选择器）
+        async function tryRestoreLocalDir() {
+            if (!supportsFSA) return null;
+            try {
+                const dirHandle = await window.showDirectoryPicker({
+                    id: 'md-workspace',
+                    mode: 'readwrite',
+                    startIn: 'desktop'
+                });
+                return dirHandle;
+            } catch {
+                return null;
+            }
+        }
+
         // 创建并激活在线工作区
         async function createOnlineWorkspace() {
-            const handle = new VirtualDirHandle('在线工作区');
+            githubMode = false;
             isOnlineMode = true;
+            const handle = new VirtualDirHandle('在线工作区');
             saveWorkspaceMode();
             saveWorkspaceName(handle.name);
             await setWorkspace(handle);
@@ -1773,6 +1774,7 @@
                 showToast('已在在线模式中');
                 return;
             }
+            githubMode = false;
             isOnlineMode = true;
             saveWorkspaceMode();
             const handle = new VirtualDirHandle('在线工作区');
@@ -1789,34 +1791,46 @@
             workspaceIcon.textContent = '⏳';
             
             try {
-                if (isOnlineMode) {
-                    await switchToOnlineMode();
-                    restoreWorkspaceBtn.disabled = false;
-                    return;
+                const savedMode = localStorage.getItem('workspaceMode');
+                
+                // 本地模式：用 showDirectoryPicker 的 id 静默恢复
+                if (savedMode === 'local') {
+                    const handle = await tryRestoreLocalDir();
+                    if (handle) {
+                        githubMode = false;
+                        isOnlineMode = false;
+                        await setWorkspace(handle);
+                        showToast('✅ 已恢复本地工作区: ' + handle.name, 2000);
+                        restoreWorkspaceBtn.disabled = false;
+                        return;
+                    }
+                    showToast('⚠️ 恢复失败，权限可能已过期，请重新选择目录');
                 }
                 
-                const savedHandle = await loadDirectoryHandle();
-                if (!savedHandle) {
-                    showToast('没有保存的工作区，已启用在线模式');
-                    await switchToOnlineMode();
-                    restoreWorkspaceBtn.disabled = false;
-                    return;
+                // GitHub 模式
+                if (savedMode === 'github' || savedMode === 'local') {
+                    const token = getSavedToken();
+                    if (token) {
+                        try {
+                            const handle = new GitHubDirHandle(GITHUB_OWNER, GITHUB_REPO, token, 'main');
+                            await handle._fetchFileList();
+                            githubMode = true;
+                            isOnlineMode = false;
+                            await setWorkspace(handle);
+                            workspaceIcon.textContent = '🐙';
+                            restoreWorkspaceBtn.disabled = false;
+                            return;
+                        } catch (err) {
+                            showToast('⚠️ GitHub 连接失败，回退到在线模式');
+                        }
+                    }
                 }
                 
-                const hasPermission = await verifyAndRequestPermission(savedHandle);
-                if (hasPermission) {
-                    isOnlineMode = false;
-                    saveWorkspaceMode();
-                    await setWorkspace(savedHandle);
-                    showToast('已恢复本地工作区: ' + savedHandle.name, 2000);
-                } else {
-                    showToast('权限请求失败，已启用在线模式');
-                    await switchToOnlineMode();
-                }
+                // 回退到在线模式
+                await createOnlineWorkspace();
             } catch (err) {
                 console.error('恢复工作区失败:', err);
-                showToast('恢复失败，已启用在线模式');
-                await switchToOnlineMode();
+                await createOnlineWorkspace();
             } finally {
                 restoreWorkspaceBtn.disabled = false;
             }
@@ -1839,6 +1853,7 @@
             const newHandle = await requestLocalDirectoryAccess();
             
             if (newHandle) {
+                githubMode = false;
                 isOnlineMode = false;
                 saveWorkspaceMode();
                 await setWorkspace(newHandle);
@@ -1943,18 +1958,18 @@
             }
             
             const savedMode = localStorage.getItem('workspaceMode');
-            const savedName = localStorage.getItem('workspaceName');
             
-            // 自动使用在线模式
-            if (savedMode === 'online' || !savedMode || savedMode === 'local' && !supportsFSA) {
-                const handle = new VirtualDirHandle(savedName || '在线工作区');
-                isOnlineMode = true;
-                saveWorkspaceMode();
-                await setWorkspace(handle);
-                return;
-            }
-            
+            // 本地模式：用 showDirectoryPicker 的 id 静默恢复
             if (savedMode === 'local') {
+                const handle = await tryRestoreLocalDir();
+                if (handle) {
+                    githubMode = false;
+                    isOnlineMode = false;
+                    await setWorkspace(handle);
+                    return;
+                }
+                // 静默恢复失败，显示恢复提示
+                const savedName = localStorage.getItem('workspaceName');
                 fileListContainer.innerHTML = `
                     <div class="restore-hint">
                         <p style="margin-bottom: 8px;">💾 检测到已保存的本地工作区</p>
