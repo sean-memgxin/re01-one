@@ -1,38 +1,2418 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
-  <head>
-	<script>
-	window.addEventListener('load', () => {
-	  // 调用 GitHub Actions 的触发端点（需配合后端）
-	  fetch('https://api.github.com/repos/sean-memgxin/re01-one/dispatches', {
-	    method: 'POST',
-	    headers: {
-	      'Authorization': 'token ${{ secrets.PAT_TOKEN }}', // 通过 GitHub Secrets 注入
-	      'Accept': 'application/vnd.github.everest-preview+json',
-	      'Content-Type': 'application/json'
-	    },
-	    body: JSON.stringify({ event_type: 'page_visited' })
-	  }).catch(e => console.log('记录失败（可忽略）'));
-	});
-	</script>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>📁 文档辅助处理系统</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
-	  
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>你好，世界！</title>
-    <style>  
-      body {
-        margin: 0;
-      }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue', sans-serif;
+            background: #f0f2f5;
+            height: 100vh;
+            overflow: hidden;
+            color: #1e293b;
+        }
+
+        .app-layout {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        .app-header {
+            height: 60px;
+            background: #ffffff;
+            border-bottom: 1px solid #e4e7ed;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 24px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+            z-index: 10;
+        }
+
+        .logo-area {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo-icon {
+            background: #2563eb;
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+            font-size: 18px;
+        }
+
+        .logo-text {
+            font-weight: 600;
+            font-size: 18px;
+            color: #1e293b;
+        }
+
+        .workspace-badge {
+            background: #f1f5f9;
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 13px;
+            color: #475569;
+            border: 1px solid #e2e8f0;
+            cursor: pointer;
+            transition: all 0.15s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .workspace-badge:hover {
+            background: #e2e8f0;
+        }
+
+        .workspace-badge.auto-restored {
+            background: #dcfce7;
+            border-color: #86efac;
+            color: #166534;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 12px;
+        }
+
+        .app-main {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        .nav-sidebar {
+            width: 280px;
+            background: #ffffff;
+            border-right: 1px solid #e9eef2;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .sidebar-header {
+            padding: 20px 16px 12px;
+            border-bottom: 1px solid #f1f5f9;
+        }
+
+        .sidebar-title {
+            font-size: 14px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #64748b;
+            margin-bottom: 12px;
+        }
+
+        .new-file-btn {
+            width: 100%;
+            padding: 10px 12px;
+            background: #2563eb;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-weight: 500;
+            font-size: 14px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: all 0.15s;
+            box-shadow: 0 2px 4px rgba(37,99,235,0.1);
+        }
+
+        .new-file-btn:hover {
+            background: #1d4ed8;
+            box-shadow: 0 4px 8px rgba(37,99,235,0.2);
+        }
+
+        .new-file-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .nav-menu {
+            flex: 1;
+            overflow-y: auto;
+            padding: 8px 8px 16px;
+        }
+
+        .menu-folder {
+            margin-bottom: 4px;
+        }
+
+        .folder-header {
+            display: flex;
+            align-items: center;
+            padding: 10px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            user-select: none;
+            transition: background 0.12s;
+            color: #1e293b;
+            font-weight: 500;
+        }
+
+        .folder-header:hover {
+            background: #f8fafc;
+        }
+
+        .folder-icon {
+            margin-right: 8px;
+            font-size: 16px;
+            width: 20px;
+            color: #2563eb;
+        }
+
+        .folder-arrow {
+            margin-left: auto;
+            font-size: 12px;
+            color: #94a3b8;
+            transition: transform 0.2s;
+        }
+
+        .folder-header.collapsed .folder-arrow {
+            transform: rotate(-90deg);
+        }
+
+        .folder-name {
+            flex: 1;
+        }
+
+        .file-count {
+            background: #eef2f6;
+            padding: 2px 8px;
+            border-radius: 20px;
+            font-size: 11px;
+            color: #475569;
+            margin-left: 8px;
+        }
+
+        .folder-children {
+            margin-left: 24px;
+            padding-left: 12px;
+            border-left: 1px dashed #d1d9e6;
+            margin-top: 4px;
+            margin-bottom: 8px;
+        }
+
+        .file-item {
+            display: flex;
+            align-items: center;
+            padding: 8px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            color: #334155;
+            margin: 2px 0;
+            transition: all 0.1s;
+            position: relative;
+        }
+
+        .file-item:hover {
+            background: #f1f5f9;
+        }
+
+        .file-item.active {
+            background: #e0f2fe;
+            color: #0369a1;
+            font-weight: 500;
+        }
+
+        .file-icon {
+            margin-right: 8px;
+            opacity: 0.7;
+            font-size: 14px;
+        }
+
+        .file-name {
+            flex: 1;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .file-func-badge {
+            background: #dbeafe;
+            color: #1e40af;
+            padding: 2px 6px;
+            border-radius: 12px;
+            font-size: 11px;
+            margin-left: 8px;
+        }
+
+        .empty-folder-message {
+            padding: 12px;
+            color: #94a3b8;
+            font-size: 13px;
+            text-align: center;
+        }
+
+        .restore-hint {
+            padding: 16px;
+            margin: 12px 8px;
+            background: #fef3c7;
+            border: 1px solid #fbbf24;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .restore-btn-large {
+            background: #f59e0b;
+            color: white;
+            border: none;
+            padding: 10px 16px;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            margin-top: 8px;
+            width: 100%;
+            transition: all 0.15s;
+        }
+
+        .restore-btn-large:hover {
+            background: #d97706;
+        }
+
+        .loading-indicator {
+            padding: 20px;
+            text-align: center;
+            color: #64748b;
+        }
+
+        .loading-spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid #e2e8f0;
+            border-top-color: #2563eb;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin-right: 8px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .content-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: #f8fafc;
+            overflow: hidden;
+        }
+
+        .editor-toolbar {
+            padding: 16px 24px 8px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid #e2e8f0;
+            background: #ffffff;
+        }
+
+        .current-file-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .file-badge {
+            background: #e6f0ff;
+            color: #2563eb;
+            padding: 4px 12px;
+            border-radius: 16px;
+            font-size: 13px;
+            font-weight: 500;
+        }
+
+        .save-indicator {
+            font-size: 13px;
+            color: #059669;
+        }
+
+        .editor-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            border: 1px solid #d1d9e6;
+            background: white;
+            color: #1e293b;
+            transition: all 0.12s;
+        }
+
+        .btn-primary {
+            background: #2563eb;
+            border-color: #2563eb;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #1d4ed8;
+        }
+
+        .btn-warning {
+            background: #f59e0b;
+            border-color: #f59e0b;
+            color: white;
+        }
+
+        .btn-warning:hover {
+            background: #d97706;
+        }
+
+        .btn:hover {
+            border-color: #2563eb;
+            background: #f9fcff;
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .editor-container {
+            flex: 1;
+            display: flex;
+            padding: 20px 24px;
+            gap: 20px;
+            overflow: hidden;
+        }
+
+        .right-pane {
+            flex: 1;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            border: 1px solid #eef2f6;
+        }
+
+        .pane-header {
+            padding: 12px 16px;
+            border-bottom: 1px solid #f1f5f9;
+            font-weight: 500;
+            font-size: 13px;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            background: #fafcff;
+        }
+
+        .tab-bar {
+            display: flex;
+            border-bottom: 1px solid #e2e8f0;
+            background: #fafcff;
+            padding: 0 16px;
+        }
+
+        .tab-bar.hidden {
+            display: none;
+        }
+
+        .tab-content {
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .tab-pane {
+            display: none;
+            height: 100%;
+        }
+
+        .tab-pane.active {
+            display: block;
+        }
+
+        #editor {
+            flex: 1;
+            padding: 16px;
+            border: none;
+            outline: none;
+            resize: none;
+            font-family: 'JetBrains Mono', 'Cascadia Code', monospace;
+            font-size: 14px;
+            line-height: 1.7;
+            color: #0f172a;
+            background: #ffffff;
+        }
+
+        /* 文档内容样式 */
+        .document-editor {
+            padding: 16px;
+            height: 100%;
+        }
+
+        .document-editor textarea {
+            width: 100%;
+            height: 100%;
+            padding: 16px;
+            border: none;
+            outline: none;
+            resize: none;
+            font-family: 'JetBrains Mono', 'Cascadia Code', monospace;
+            font-size: 14px;
+            line-height: 1.7;
+            color: #0f172a;
+            background: #ffffff;
+            border-radius: 8px;
+        }
+
+        /* 函数记录样式 */
+        .function-container {
+            padding: 20px;
+            height: 100%;
+            overflow-y: auto;
+        }
+
+        .function-summary {
+            background: #f0f9ff;
+            border: 1px solid #bae6fd;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 20px;
+        }
+
+        .summary-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #0369a1;
+            margin-bottom: 12px;
+        }
+
+        .summary-stats {
+            display: flex;
+            gap: 20px;
+        }
+
+        .stat-item {
+            flex: 1;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 32px;
+            font-weight: 700;
+            color: #0c4a6e;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #64748b;
+            margin-top: 4px;
+        }
+
+        .function-control {
+            background: #f8fafc;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 20px;
+        }
+
+        .current-file-func {
+            margin-bottom: 16px;
+        }
+
+        .func-display {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-top: 8px;
+        }
+
+        .func-count {
+            font-size: 28px;
+            font-weight: 700;
+            color: #2563eb;
+        }
+
+        .func-buttons {
+            display: flex;
+            gap: 8px;
+        }
+
+        .func-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 8px;
+            border: 1px solid #d1d9e6;
+            background: white;
+            font-size: 20px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.15s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .func-btn:hover {
+            background: #2563eb;
+            color: white;
+            border-color: #2563eb;
+        }
+
+        .func-btn.plus:hover {
+            background: #059669;
+            border-color: #059669;
+        }
+
+        .func-btn.minus:hover {
+            background: #dc2626;
+            border-color: #dc2626;
+        }
+
+        .quick-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 12px;
+            padding: 12px;
+            background: #f8fafc;
+            border-radius: 8px;
+        }
+
+        .quick-btn {
+            padding: 8px 14px;
+            border-radius: 6px;
+            border: 1px solid #d1d9e6;
+            background: white;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.15s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .quick-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .func-initial {
+            margin-top: 16px;
+        }
+
+        .initial-input-group {
+            display: flex;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .initial-input {
+            flex: 1;
+            padding: 8px 12px;
+            border: 1px solid #d1d9e6;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+
+        .function-history {
+            margin-top: 20px;
+        }
+
+        .history-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: #475569;
+            margin-bottom: 12px;
+        }
+
+        .history-list {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .history-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 12px;
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            margin-bottom: 6px;
+            font-size: 13px;
+        }
+
+        .history-file {
+            font-weight: 500;
+            color: #1e293b;
+        }
+
+        .history-change {
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-weight: 600;
+        }
+
+        .history-change.positive {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .history-change.negative {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .history-time {
+            color: #94a3b8;
+            font-size: 11px;
+        }
+
+        .empty-history {
+            text-align: center;
+            color: #94a3b8;
+            padding: 20px;
+        }
+
+        .toast-message {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            background: #1e293b;
+            color: white;
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-size: 14px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            z-index: 1000;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        .config-panel-container {
+            padding: 20px;
+            height: 100%;
+            overflow-y: auto;
+        }
+
+        .config-panel {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .config-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #1e293b;
+            margin-bottom: 20px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .config-section {
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+
+        .config-section h4 {
+            font-size: 14px;
+            font-weight: 600;
+            color: #475569;
+            margin-bottom: 12px;
+        }
+
+        .config-label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 10px;
+            font-size: 14px;
+            color: #334155;
+        }
+
+        .config-label input[type="number"],
+        .config-label input[type="text"] {
+            padding: 6px 10px;
+            border: 1px solid #d1d9e6;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        .config-label input[type="checkbox"] {
+            width: 16px;
+            height: 16px;
+        }
+
+        .config-select {
+            padding: 6px 10px;
+            border: 1px solid #d1d9e6;
+            border-radius: 4px;
+            font-size: 14px;
+            background: white;
+        }
+
+        .template-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+
+        .template-card {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.15s;
+            background: white;
+        }
+
+        .template-card:hover {
+            border-color: #2563eb;
+        }
+
+        .template-card.active {
+            border-color: #2563eb;
+            background: #f0f4ff;
+        }
+
+        .template-icon {
+            width: 32px;
+            height: 32px;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+        }
+
+        .template-info {
+            flex: 1;
+        }
+
+        .template-name {
+            font-weight: 500;
+            font-size: 13px;
+            color: #1e293b;
+        }
+
+        .template-type {
+            font-size: 11px;
+            color: #64748b;
+        }
+
+        .template-check {
+            color: #2563eb;
+            font-weight: bold;
+        }
+
+        .stats-overview {
+            display: flex;
+            gap: 16px;
+        }
+
+        .stat-card {
+            flex: 1;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 16px;
+            text-align: center;
+        }
+
+        .stat-card .stat-value {
+            font-size: 28px;
+            font-weight: 700;
+            color: #2563eb;
+        }
+
+        .stat-card .stat-label {
+            font-size: 12px;
+            color: #64748b;
+            margin-top: 4px;
+        }
+
+        .config-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            width: 400px;
+            max-width: 90%;
+        }
+
+        .modal-content h3 {
+            margin-bottom: 16px;
+            font-size: 16px;
+            color: #1e293b;
+        }
+
+        .modal-form {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .modal-form label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+            color: #334155;
+        }
+
+        .modal-form input,
+        .modal-form select {
+            flex: 1;
+            padding: 8px;
+            border: 1px solid #d1d9e6;
+            border-radius: 4px;
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 16px;
+            justify-content: flex-end;
+        }
     </style>
-  </head>
-  <body>
-	  <h1>你好，世界！</h1>
-    <div>练习div</div>
-    <div>练习div1</div>
-    <div>练习div2</div>
-    <div>练习div3</div>
-    <div>练习div4</div>
-    <div>练习di5</div>
-  </body>
+</head>
+<body>
+<div class="app-layout">
+    <header class="app-header">
+        <div class="logo-area">
+            <div class="logo-icon">📊</div>
+            <span class="logo-text">文档辅助处理系统</span>
+        </div>
+        <div class="workspace-badge" id="workspaceSelector" title="点击更换工作目录">
+            <span id="workspaceIcon">📂</span>
+            <span id="workspaceText">正在初始化...</span>
+        </div>
+        <div class="header-actions">
+            <button class="btn btn-warning" id="restoreWorkspaceBtn" title="恢复上次使用的工作区">
+                🔄 恢复工作区
+            </button>
+            <button class="btn" id="refreshDirBtn" title="刷新文件列表">
+                🔄 刷新
+            </button>
+        </div>
+    </header>
+
+    <div class="app-main">
+        <aside class="nav-sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-title">文档管理</div>
+                <button class="new-file-btn" id="createNewFileBtn" disabled>
+                    <span>+</span> 新建 Markdown
+                </button>
+            </div>
+            
+            <nav class="nav-menu" id="fileTreeContainer">
+                <!-- 我的文档 -->
+                <div class="menu-folder">
+                    <div class="folder-header" id="mainFolderToggle">
+                        <span class="folder-icon">📁</span>
+                        <span class="folder-name" id="workspaceName">我的文档</span>
+                        <span class="file-count" id="fileCountDisplay">0</span>
+                        <span class="folder-arrow">▼</span>
+                    </div>
+                    <div class="folder-children" id="fileListContainer">
+                        <div class="loading-indicator">
+                            <span class="loading-spinner"></span>
+                            <span>正在连接工作区...</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 系统配置 -->
+                <div class="menu-folder">
+                    <div class="folder-header" id="configFolderToggle">
+                        <span class="folder-icon">⚙️</span>
+                        <span class="folder-name">系统配置</span>
+                        <span class="folder-arrow">▼</span>
+                    </div>
+                    <div class="folder-children" id="configListContainer">
+                        <div class="file-item" data-type="config" data-panel="function-config" onclick="window.openConfigPanel('function-config')">
+                            <span class="file-icon">📊</span>
+                            <span class="file-name">函数配置</span>
+                        </div>
+                        <div class="file-item" data-type="config" data-panel="ui-config" onclick="window.openConfigPanel('ui-config')">
+                            <span class="file-icon">🎨</span>
+                            <span class="file-name">界面设置</span>
+                        </div>
+                        <div class="file-item" data-type="config" data-panel="data-config" onclick="window.openConfigPanel('data-config')">
+                            <span class="file-icon">💾</span>
+                            <span class="file-name">数据管理</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 数据操作 -->
+                <div class="menu-folder">
+                    <div class="folder-header" id="dataOpFolderToggle">
+                        <span class="folder-icon">📥</span>
+                        <span class="folder-name">数据操作</span>
+                        <span class="folder-arrow">▼</span>
+                    </div>
+                    <div class="folder-children" id="dataOpListContainer">
+                        <div class="file-item" data-type="action" data-action="export" onclick="window.exportConfig()">
+                            <span class="file-icon">📤</span>
+                            <span class="file-name">导出配置</span>
+                        </div>
+                        <div class="file-item" data-type="action" data-action="reset" onclick="window.resetData()">
+                            <span class="file-icon">🔄</span>
+                            <span class="file-name">重置数据</span>
+                        </div>
+                    </div>
+                </div>
+            </nav>
+        </aside>
+
+        <main class="content-area">
+            <div class="editor-toolbar">
+                <div class="current-file-info">
+                    <span class="file-badge" id="currentFileLabel">未打开文件</span>
+                    <span class="save-indicator" id="saveStatus">⚡ 就绪</span>
+                </div>
+                <div class="editor-actions">
+                    <button class="btn" id="manualSaveBtn">💾 保存</button>
+                </div>
+            </div>
+
+            <div class="editor-container">
+                <!-- 右侧页签区 -->
+                <div class="right-pane" style="flex: 1;">
+                    <div class="tab-bar" id="mainTabBar">
+                        <div class="tab-item active" data-tab="content">📄 内容</div>
+                        <div class="tab-item" data-tab="function">📊 函数</div>
+                    </div>
+                    
+                    <div class="tab-content" id="mainTabContent">
+                        <!-- 内容页签 -->
+                        <div class="tab-pane active" id="tab-content">
+                            <div class="document-editor">
+                                <textarea id="editor" placeholder="选择左侧文件开始编辑..." spellcheck="false"></textarea>
+                            </div>
+                        </div>
+                        
+                        <!-- 函数记录页签 -->
+                        <div class="tab-pane" id="tab-function">
+                            <div class="function-container">
+                                <div class="function-summary">
+                                    <div class="summary-title">📊 函数数量汇总</div>
+                                    <div class="summary-stats">
+                                        <div class="stat-item">
+                                            <div class="stat-value" id="totalFunctions">0</div>
+                                            <div class="stat-label">总函数数</div>
+                                        </div>
+                                        <div class="stat-item">
+                                            <div class="stat-value" id="totalFiles">0</div>
+                                            <div class="stat-label">涉及文件</div>
+                                        </div>
+                                        <div class="stat-item">
+                                            <div class="stat-value" id="todayChanges">0</div>
+                                            <div class="stat-label">今日变动</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="function-control">
+                                    <div class="current-file-func">
+                                        <div style="font-weight: 500; color: #1e293b;" id="currentFuncFile">未选择文件</div>
+                                        <div class="func-display">
+                                            <span class="func-count" id="currentFuncCount">0</span>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- 快速操作按钮 -->
+                                    <div class="quick-buttons" id="quickButtons">
+                                        <!-- 动态渲染快速按钮 -->
+                                    </div>
+                                    
+                                    <div class="func-initial">
+                                        <label style="font-size: 13px; color: #475569;">设置初始值</label>
+                                        <div class="initial-input-group">
+                                            <input type="number" class="initial-input" id="initialFuncInput" placeholder="输入数量" min="0">
+                                            <button class="btn btn-primary" id="setInitialBtn" disabled>设置</button>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="function-history">
+                                    <div class="history-title">📋 操作记录</div>
+                                    <div class="history-list" id="historyList">
+                                        <div class="empty-history">暂无操作记录</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+</div>
+
+<script>
+    (function(){
+        "use strict";
+
+        // 配置文件路径
+        const CONFIG_FILE = 'config.json';
+        const STATS_FILE = 'function_stats.json';
+
+        // 虚拟文件系统 —— 使用 localStorage 实现在线存储
+        const VFS_PREFIX = 'md-editor:';
+        const VFS_FILELIST = VFS_PREFIX + '__filelist__';
+
+        class VirtualFileHandle {
+            constructor(fileName) {
+                this.name = fileName;
+                this.kind = 'file';
+            }
+            async getFile() {
+                const key = VFS_PREFIX + 'file:' + this.name;
+                const c = localStorage.getItem(key) || '';
+                return { text: async () => c };
+            }
+            async createWritable() {
+                const fileName = this.name;
+                return {
+                    write: async (content) => { localStorage.setItem(VFS_PREFIX + 'file:' + fileName, typeof content === 'string' ? content : ''); },
+                    close: async () => {}
+                };
+            }
+        }
+
+        class VirtualDirHandle {
+            constructor(name) { this.name = name || '在线工作区'; }
+            static _fl() { try { const r = localStorage.getItem(VFS_FILELIST); return r ? JSON.parse(r) : []; } catch { return []; } }
+            static _sfl(files) { localStorage.setItem(VFS_FILELIST, JSON.stringify(files)); }
+            async getFileHandle(fileName, opts = {}) {
+                const files = VirtualDirHandle._fl();
+                if (!files.includes(fileName) && !opts.create) throw new Error('File not found: ' + fileName);
+                if (opts.create && !files.includes(fileName)) { files.push(fileName); VirtualDirHandle._sfl(files); }
+                return new VirtualFileHandle(fileName);
+            }
+            async *values() { for (const f of VirtualDirHandle._fl()) yield new VirtualFileHandle(f); }
+            async queryPermission() { return 'granted'; }
+            async requestPermission() { return 'granted'; }
+        }
+
+        // 判断是否支持 File System Access API
+        const supportsFSA = typeof window.showDirectoryPicker === 'function';
+        let isOnlineMode = true;
+
+        // ConfigManager 类
+        class ConfigManager {
+            constructor(dirHandle) {
+                this.dirHandle = dirHandle;
+                this.config = null;
+                this.stats = null;
+            }
+
+            async loadConfig() {
+                try {
+                    const fileHandle = await this.dirHandle.getFileHandle(CONFIG_FILE);
+                    const file = await fileHandle.getFile();
+                    const content = await file.text();
+                    this.config = JSON.parse(content);
+                } catch {
+                    this.config = await this.createDefaultConfig();
+                }
+                return this.config;
+            }
+
+            async saveConfig(config) {
+                this.config = { ...config, lastModified: new Date().toISOString() };
+                await this.writeJSONFile(CONFIG_FILE, this.config);
+            }
+
+            async loadStats() {
+                try {
+                    const fileHandle = await this.dirHandle.getFileHandle(STATS_FILE);
+                    const file = await fileHandle.getFile();
+                    const content = await file.text();
+                    this.stats = JSON.parse(content);
+                } catch {
+                    this.stats = { version: '1.0', lastUpdated: new Date().toISOString(), files: {} };
+                }
+                return this.stats;
+            }
+
+            async saveStats(stats) {
+                this.stats = { ...stats, lastUpdated: new Date().toISOString() };
+                await this.writeJSONFile(STATS_FILE, this.stats);
+            }
+
+            async writeJSONFile(filename, data) {
+                const fileHandle = await this.dirHandle.getFileHandle(filename, { create: true });
+                const writable = await fileHandle.createWritable();
+                await writable.write(JSON.stringify(data, null, 2));
+                await writable.close();
+            }
+
+            async createDefaultConfig() {
+                const defaultConfig = {
+                    version: '1.0',
+                    lastModified: new Date().toISOString(),
+                    workspace: { lastPath: '', autoRestore: true },
+                    functionConfig: {
+                        templates: [
+                            { id: 'add_1000', name: '+1000', type: 'add', value: 1000, color: '#059669', icon: '⬆️' },
+                            { id: 'add_100', name: '+100', type: 'add', value: 100, color: '#2563eb', icon: '📈' },
+                            { id: 'add_10', name: '+10', type: 'add', value: 10, color: '#0891b2', icon: '➕' },
+                            { id: 'add_1', name: '+1', type: 'add', value: 1, color: '#0284c7', icon: '🔹' },
+                            { id: 'sub_1', name: '-1', type: 'sub', value: 1, color: '#ea580c', icon: '🔸' },
+                            { id: 'sub_10', name: '-10', type: 'sub', value: 10, color: '#dc2626', icon: '➖' },
+                            { id: 'sub_100', name: '-100', type: 'sub', value: 100, color: '#b91c1c', icon: '📉' },
+                            { id: 'mul_2', name: '×2', type: 'mul', value: 2, color: '#7c3aed', icon: '✖️' },
+                            { id: 'div_2', name: '÷2', type: 'div', value: 2, color: '#db2777', icon: '➗' },
+                            { id: 'set_0', name: '归零', type: 'set', value: 0, color: '#475569', icon: '🔄' }
+                        ],
+                        quickButtons: ['add_1000', 'add_100', 'add_1', 'sub_1', 'sub_100'],
+                        defaults: { initialValue: 0, autoSave: true, saveDelay: 1000, maxHistoryItems: 100 }
+                    },
+                    uiConfig: {
+                        theme: 'light',
+                        fontSize: 14,
+                        editorFontFamily: "'JetBrains Mono', monospace",
+                        showFileFunctionBadge: true,
+                        sidebarWidth: 280,
+                        defaultTab: 'content'
+                    },
+                    shortcuts: { save: 'Ctrl+S', newFile: 'Ctrl+N' }
+                };
+                await this.saveConfig(defaultConfig);
+                return defaultConfig;
+            }
+        }
+
+        const editor = document.getElementById('editor');
+        const saveStatus = document.getElementById('saveStatus');
+        const currentFileLabel = document.getElementById('currentFileLabel');
+        const fileListContainer = document.getElementById('fileListContainer');
+        const fileCountDisplay = document.getElementById('fileCountDisplay');
+        const workspaceSelector = document.getElementById('workspaceSelector');
+        const workspaceText = document.getElementById('workspaceText');
+        const workspaceIcon = document.getElementById('workspaceIcon');
+        const workspaceName = document.getElementById('workspaceName');
+        const refreshDirBtn = document.getElementById('refreshDirBtn');
+        const restoreWorkspaceBtn = document.getElementById('restoreWorkspaceBtn');
+        const createNewFileBtn = document.getElementById('createNewFileBtn');
+        const manualSaveBtn = document.getElementById('manualSaveBtn');
+        const mainFolderToggle = document.getElementById('mainFolderToggle');
+        
+        // 函数相关元素
+        const currentFuncCount = document.getElementById('currentFuncCount');
+        const currentFuncFile = document.getElementById('currentFuncFile');
+        const setInitialBtn = document.getElementById('setInitialBtn');
+        const initialFuncInput = document.getElementById('initialFuncInput');
+        const totalFunctions = document.getElementById('totalFunctions');
+        const totalFiles = document.getElementById('totalFiles');
+        const todayChanges = document.getElementById('todayChanges');
+        const historyList = document.getElementById('historyList');
+
+        let currentFileHandle = null;
+        let currentFileName = '';
+        let lastContent = '';
+        let autoSaveTimer = null;
+        let fileList = [];
+        let activeFileItem = null;
+        let workspaceDirHandle = null;
+        
+        // 函数数据存储（从JSON文件获取）
+        let functionData = {};
+        let appConfigManager = null;
+
+        // 显示提示消息
+        function showToast(message, duration = 3000) {
+            const toast = document.createElement('div');
+            toast.className = 'toast-message';
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), duration);
+        }
+
+        // 使用JSON文件的函数数据管理
+        async function saveFunctionData() {
+            if (!appConfigManager) return;
+            
+            const stats = {
+                version: '1.0',
+                lastUpdated: new Date().toISOString(),
+                files: functionData
+            };
+            await appConfigManager.saveStats(stats);
+            updateSummary();
+        }
+
+        // 加载函数数据
+        async function loadFunctionData() {
+            if (!appConfigManager) return;
+            
+            const stats = await appConfigManager.loadStats();
+            functionData = stats.files || {};
+            updateSummary();
+            updateFileListWithFuncCount();
+        }
+
+        // 更新文件列表显示函数数量
+        function updateFileListWithFuncCount() {
+            const items = fileListContainer.querySelectorAll('.file-item');
+            items.forEach(item => {
+                const fileName = item.dataset.filename;
+                const count = functionData[fileName]?.count || 0;
+                const existingBadge = item.querySelector('.file-func-badge');
+                if (existingBadge) {
+                    existingBadge.textContent = count;
+                } else {
+                    const badge = document.createElement('span');
+                    badge.className = 'file-func-badge';
+                    badge.textContent = count;
+                    item.appendChild(badge);
+                }
+            });
+        }
+
+        // 更新汇总统计
+        function updateSummary() {
+            const files = Object.keys(functionData);
+            const total = files.reduce((sum, file) => sum + (functionData[file].count || 0), 0);
+            totalFunctions.textContent = total;
+            totalFiles.textContent = files.length;
+            
+            // 计算今日变动
+            const today = new Date().toDateString();
+            let todayChangeCount = 0;
+            files.forEach(file => {
+                const history = functionData[file].history || [];
+                history.forEach(record => {
+                    if (new Date(record.time).toDateString() === today) {
+                        todayChangeCount += Math.abs(record.change);
+                    }
+                });
+            });
+            todayChanges.textContent = todayChangeCount;
+        }
+
+        // 渲染快速操作按钮
+        function renderQuickButtons() {
+            const container = document.getElementById('quickButtons');
+            if (!container || !appConfigManager) {
+                if (container) container.innerHTML = '<div class="empty-history">请先连接工作区</div>';
+                return;
+            }
+            
+            const config = appConfigManager.config.functionConfig;
+            const quickIds = config.quickButtons;
+            const templates = config.templates.filter(t => quickIds.includes(t.id));
+            
+            if (templates.length === 0) {
+                container.innerHTML = '<div class="empty-history">请在函数配置中添加快速按钮</div>';
+                return;
+            }
+            
+            let html = '';
+            templates.forEach(tpl => {
+                html += `<button class="quick-btn" style="border-color:${tpl.color}; color:${tpl.color}" onclick="applyFunctionTemplate('${tpl.id}')">${tpl.icon} ${tpl.name}</button>`;
+            });
+            container.innerHTML = html;
+        }
+
+        // 更新当前文件的函数显示
+        function updateCurrentFileFunction() {
+            if (!currentFileName) {
+                currentFuncFile.textContent = '未选择文件';
+                currentFuncCount.textContent = '0';
+                setInitialBtn.disabled = true;
+                renderQuickButtons();
+                return;
+            }
+            
+            currentFuncFile.textContent = currentFileName;
+            const data = functionData[currentFileName] || { count: 0, history: [] };
+            currentFuncCount.textContent = data.count;
+            setInitialBtn.disabled = false;
+            
+            renderQuickButtons();
+            updateHistoryList();
+        }
+
+        // 更新历史记录列表
+        function updateHistoryList() {
+            if (!currentFileName) {
+                historyList.innerHTML = '<div class="empty-history">请选择文件查看记录</div>';
+                return;
+            }
+            
+            const data = functionData[currentFileName];
+            if (!data || !data.history || data.history.length === 0) {
+                historyList.innerHTML = '<div class="empty-history">暂无操作记录</div>';
+                return;
+            }
+            
+            const history = [...data.history].reverse();
+            let html = '';
+            history.forEach(record => {
+                const time = new Date(record.time);
+                const timeStr = `${time.getHours().toString().padStart(2, '0')}:${time.getMinutes().toString().padStart(2, '0')}`;
+                const changeClass = record.change > 0 ? 'positive' : 'negative';
+                const changeSymbol = record.change > 0 ? '+' : '';
+                
+                html += `
+                    <div class="history-item">
+                        <span class="history-file">${record.fileName}</span>
+                        <span class="history-change ${changeClass}">${changeSymbol}${record.change}</span>
+                        <span class="history-time">${timeStr}</span>
+                    </div>
+                `;
+            });
+            historyList.innerHTML = html;
+        }
+
+        // 应用函数模板
+        function applyFunctionTemplate(templateId) {
+            if (!currentFileName || !appConfigManager) return;
+            
+            const templates = appConfigManager.config.functionConfig.templates;
+            const template = templates.find(t => t.id === templateId);
+            if (!template) return;
+            
+            if (!functionData[currentFileName]) {
+                functionData[currentFileName] = { count: 0, history: [] };
+            }
+            
+            const data = functionData[currentFileName];
+            let oldCount = data.count;
+            let newCount;
+            let change;
+            
+            switch(template.type) {
+                case 'add':
+                    newCount = oldCount + template.value;
+                    change = template.value;
+                    break;
+                case 'sub':
+                    newCount = Math.max(0, oldCount - template.value);
+                    change = newCount - oldCount;
+                    break;
+                case 'mul':
+                    newCount = oldCount * template.value;
+                    change = newCount - oldCount;
+                    break;
+                case 'div':
+                    newCount = Math.floor(oldCount / template.value);
+                    change = newCount - oldCount;
+                    break;
+                case 'set':
+                    newCount = template.value;
+                    change = newCount - oldCount;
+                    break;
+                default:
+                    return;
+            }
+            
+            data.count = newCount;
+            data.history.push({
+                change: change,
+                time: new Date().toISOString(),
+                fileName: currentFileName,
+                template: template.name
+            });
+            
+            currentFuncCount.textContent = newCount;
+            
+            saveFunctionData();
+            updateFileListWithFuncCount();
+            updateHistoryList();
+            
+            const actionText = { add: '增加', sub: '减少', mul: '翻倍', div: '减半', set: '设为' };
+            showToast(`${actionText[template.type]}${template.name}: ${change > 0 ? '+' : ''}${change}`, 1500);
+        }
+        window.applyFunctionTemplate = applyFunctionTemplate;
+
+        // 兼容旧的 +1/-1 按钮（使用默认快速按钮）
+        function changeFunctionCount(delta) {
+            if (!currentFileName || !appConfigManager) return;
+            
+            const config = appConfigManager.config.functionConfig;
+            const quickButtons = config.quickButtons;
+            
+            // 根据 delta 找到对应的快速按钮
+            let templateId;
+            if (delta > 0) {
+                const addTemplates = config.templates.filter(t => t.type === 'add' && t.value >= delta);
+                addTemplates.sort((a, b) => a.value - b.value);
+                templateId = addTemplates[0]?.id || quickButtons.find(id => {
+                    const t = config.templates.find(tp => tp.id === id);
+                    return t && t.type === 'add';
+                });
+            } else {
+                const subTemplates = config.templates.filter(t => t.type === 'sub' && t.value >= Math.abs(delta));
+                subTemplates.sort((a, b) => a.value - b.value);
+                templateId = subTemplates[0]?.id || quickButtons.find(id => {
+                    const t = config.templates.find(tp => tp.id === id);
+                    return t && t.type === 'sub';
+                });
+            }
+            
+            if (templateId) {
+                applyFunctionTemplate(templateId);
+            }
+        }
+
+        // 设置初始值
+        function setInitialCount(value) {
+            if (!currentFileName || value < 0) return;
+            
+            if (!functionData[currentFileName]) {
+                functionData[currentFileName] = { count: 0, history: [] };
+            }
+            
+            const oldCount = functionData[currentFileName].count;
+            const change = value - oldCount;
+            
+            functionData[currentFileName].count = value;
+            if (change !== 0) {
+                functionData[currentFileName].history.push({
+                    change: change,
+                    time: new Date().toISOString(),
+                    fileName: currentFileName
+                });
+            }
+            
+            currentFuncCount.textContent = value;
+            initialFuncInput.value = '';
+            
+            saveFunctionData();
+            updateFileListWithFuncCount();
+            updateHistoryList();
+            showToast(`设置初始值: ${value}`, 1500);
+        }
+
+        // 保存工作区模式
+        function saveWorkspaceMode() {
+            localStorage.setItem('workspaceMode', isOnlineMode ? 'online' : 'local');
+        }
+        function saveWorkspaceName(name) {
+            localStorage.setItem('workspaceName', name);
+        }
+
+        // 加载目录名称
+        async function loadDirectoryHandle() {
+            const savedName = localStorage.getItem('workspaceName');
+            if (!savedName) return null;
+            return { name: savedName };
+        }
+
+        // 验证并请求权限
+        async function verifyAndRequestPermission(handle) {
+            try {
+                const options = { mode: 'readwrite' };
+                const currentPermission = await handle.queryPermission(options);
+                if (currentPermission === 'granted') return true;
+                const newPermission = await handle.requestPermission(options);
+                return newPermission === 'granted';
+            } catch (err) {
+                console.warn('权限请求失败:', err);
+                return false;
+            }
+        }
+
+        // 请求本地目录 (File System Access API)
+        async function requestLocalDirectoryAccess() {
+            try {
+                const dirHandle = await window.showDirectoryPicker({
+                    id: 'md-workspace',
+                    mode: 'readwrite',
+                    startIn: 'desktop'
+                });
+                saveWorkspaceName(dirHandle.name);
+                return dirHandle;
+            } catch (err) {
+                if (err.name !== 'AbortError') {
+                    showToast('无法访问目录: ' + err.message);
+                }
+                return null;
+            }
+        }
+
+        // 创建并激活在线工作区
+        async function createOnlineWorkspace() {
+            const handle = new VirtualDirHandle('在线工作区');
+            isOnlineMode = true;
+            saveWorkspaceMode();
+            saveWorkspaceName(handle.name);
+            await setWorkspace(handle);
+            showToast('☁️ 已进入在线模式，数据存储在浏览器中', 2500);
+        }
+
+        // 设置工作区 (统一入口)
+        async function setWorkspace(handle) {
+            workspaceDirHandle = handle;
+            workspaceName.textContent = handle.name;
+            workspaceText.textContent = handle.name;
+            workspaceIcon.textContent = isOnlineMode ? '☁️' : '✅';
+            workspaceSelector.classList.add('auto-restored');
+            workspaceSelector.title = isOnlineMode ? '在线工作区 (数据存储在浏览器) 点击可切换本地文件夹' : '本地工作区已连接 (点击可更换)';
+            
+            appConfigManager = new ConfigManager(workspaceDirHandle);
+            await appConfigManager.loadConfig();
+            await appConfigManager.loadStats();
+            functionData = appConfigManager.stats?.files || {};
+            
+            await refreshFileList();
+            updateSummary();
+            updateFileListWithFuncCount();
+            renderQuickButtons();
+            setStatus(isOnlineMode ? '☁️ 在线模式' : '✅ 本地工作区已连接');
+            createNewFileBtn.disabled = false;
+            if (!isOnlineMode) {
+                restoreWorkspaceBtn.style.display = 'inline-block';
+            }
+        }
+
+        // 切换回在线模式
+        async function switchToOnlineMode() {
+            if (isOnlineMode) {
+                showToast('已在在线模式中');
+                return;
+            }
+            isOnlineMode = true;
+            saveWorkspaceMode();
+            const handle = new VirtualDirHandle('在线工作区');
+            saveWorkspaceName(handle.name);
+            await setWorkspace(handle);
+            showToast('☁️ 已切换到在线模式', 2000);
+        }
+        window.switchToOnlineMode = switchToOnlineMode;
+
+        // 恢复工作区
+        async function restoreWorkspace() {
+            restoreWorkspaceBtn.disabled = true;
+            workspaceText.textContent = '正在恢复...';
+            workspaceIcon.textContent = '⏳';
+            
+            try {
+                if (isOnlineMode) {
+                    await switchToOnlineMode();
+                    restoreWorkspaceBtn.disabled = false;
+                    return;
+                }
+                
+                const savedHandle = await loadDirectoryHandle();
+                if (!savedHandle) {
+                    showToast('没有保存的工作区，已启用在线模式');
+                    await switchToOnlineMode();
+                    restoreWorkspaceBtn.disabled = false;
+                    return;
+                }
+                
+                const hasPermission = await verifyAndRequestPermission(savedHandle);
+                if (hasPermission) {
+                    isOnlineMode = false;
+                    saveWorkspaceMode();
+                    await setWorkspace(savedHandle);
+                    showToast('已恢复本地工作区: ' + savedHandle.name, 2000);
+                } else {
+                    showToast('权限请求失败，已启用在线模式');
+                    await switchToOnlineMode();
+                }
+            } catch (err) {
+                console.error('恢复工作区失败:', err);
+                showToast('恢复失败，已启用在线模式');
+                await switchToOnlineMode();
+            } finally {
+                restoreWorkspaceBtn.disabled = false;
+            }
+        }
+
+        // 手动选择目录
+        async function handleSelectWorkspace() {
+            if (!supportsFSA) {
+                if (isOnlineMode) {
+                    showToast('☁️ 当前为在线模式，数据存储在浏览器中');
+                } else {
+                    await switchToOnlineMode();
+                }
+                return;
+            }
+            
+            workspaceText.textContent = '正在请求权限...';
+            workspaceIcon.textContent = '⏳';
+            
+            const newHandle = await requestLocalDirectoryAccess();
+            
+            if (newHandle) {
+                isOnlineMode = false;
+                saveWorkspaceMode();
+                await setWorkspace(newHandle);
+                showToast('已连接本地工作区: ' + newHandle.name, 2000);
+            } else {
+                workspaceText.textContent = workspaceDirHandle ? workspaceDirHandle.name : '点击选择工作目录';
+                workspaceIcon.textContent = workspaceDirHandle ? (isOnlineMode ? '☁️' : '✅') : '📂';
+            }
+        }
+
+        // 检查保存的工作区
+        async function checkSavedWorkspace() {
+            const savedMode = localStorage.getItem('workspaceMode');
+            const savedName = localStorage.getItem('workspaceName');
+            
+            // 自动使用在线模式
+            if (savedMode === 'online' || !savedMode || savedMode === 'local' && !supportsFSA) {
+                const handle = new VirtualDirHandle(savedName || '在线工作区');
+                isOnlineMode = true;
+                saveWorkspaceMode();
+                await setWorkspace(handle);
+                return;
+            }
+            
+            if (savedMode === 'local') {
+                fileListContainer.innerHTML = `
+                    <div class="restore-hint">
+                        <p style="margin-bottom: 8px;">💾 检测到已保存的本地工作区</p>
+                        <p style="font-size:12px; color:#64748b; margin-bottom: 12px;">
+                            ${savedName || ''}
+                        </p>
+                        <button class="restore-btn-large" onclick="document.getElementById('restoreWorkspaceBtn').click()">
+                            🔄 点击恢复本地工作区
+                        </button>
+                        <button class="restore-btn-large" style="background:#2563eb; margin-top:4px;" onclick="switchToOnlineMode()">
+                            ☁️ 使用在线模式
+                        </button>
+                    </div>
+                `;
+                workspaceText.textContent = '等待恢复';
+                workspaceIcon.textContent = '💾';
+                workspaceName.textContent = '待恢复';
+                setStatus('👆 请恢复或选择工作目录');
+                createNewFileBtn.disabled = true;
+                return;
+            }
+            
+            // 默认：在线模式
+            await createOnlineWorkspace();
+        }
+
+        // 初始化工作区
+        async function initializeWorkspace() {
+            try {
+                await checkSavedWorkspace();
+            } catch (err) {
+                console.error('初始化工作区失败:', err);
+                await createOnlineWorkspace();
+            }
+        }
+
+        async function refreshFileList() {
+            if (!workspaceDirHandle) return;
+            
+            const mdFiles = [];
+            try {
+                for await (const entry of workspaceDirHandle.values()) {
+                    if (entry.kind === 'file' && entry.name.match(/\.(md|markdown|mdown|txt)$/i)) {
+                        mdFiles.push(entry.name);
+                    }
+                }
+                mdFiles.sort((a, b) => a.localeCompare(b));
+                fileList = mdFiles;
+                renderFileTree(mdFiles);
+                fileCountDisplay.textContent = mdFiles.length;
+            } catch (err) {
+                console.error('读取目录失败', err);
+                setStatus('读取目录失败', true);
+                fileListContainer.innerHTML = '<div class="empty-folder-message">读取失败，请重试</div>';
+            }
+        }
+
+        function renderFileTree(files) {
+            if (!fileListContainer) return;
+            
+            if (files.length === 0) {
+                fileListContainer.innerHTML = '<div class="empty-folder-message">暂无 Markdown 文件</div>';
+                return;
+            }
+            
+            let html = '';
+            files.forEach(fileName => {
+                const escaped = fileName.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+                const count = functionData[fileName]?.count || 0;
+                html += `
+                    <div class="file-item" data-filename="${escaped}" onclick="window.selectFileByName('${escaped}')">
+                        <span class="file-icon">📄</span>
+                        <span class="file-name" title="${escaped}">${fileName}</span>
+                        <span class="file-func-badge">${count}</span>
+                    </div>
+                `;
+            });
+            fileListContainer.innerHTML = html;
+            
+            if (currentFileName) {
+                highlightFileItem(currentFileName);
+            }
+        }
+
+        function highlightFileItem(fileName) {
+            if (activeFileItem) {
+                activeFileItem.classList.remove('active');
+            }
+            const items = fileListContainer.querySelectorAll('.file-item');
+            for (let item of items) {
+                if (item.dataset.filename === fileName) {
+                    item.classList.add('active');
+                    activeFileItem = item;
+                    break;
+                }
+            }
+        }
+
+        function setStatus(msg, isError = false) {
+            saveStatus.textContent = msg;
+            saveStatus.style.color = isError ? '#b91c1c' : '#059669';
+        }
+
+        function updateCurrentFileLabel(name) {
+            if (name) {
+                currentFileLabel.textContent = `📄 ${name}`;
+            } else {
+                currentFileLabel.textContent = '未打开文件';
+            }
+        }
+
+        window.selectFileByName = async function(fileName) {
+            if (!workspaceDirHandle) {
+                showToast('请先选择工作目录');
+                return;
+            }
+            
+            // 检查是否在配置面板模式，如果是则切回文档模式
+            const configPanel = document.getElementById('configPanelContainer');
+            if (configPanel) {
+                window.closeConfigPanel();
+                switchToTab('content');
+            }
+            
+            try {
+                const fileHandle = await workspaceDirHandle.getFileHandle(fileName);
+                const file = await fileHandle.getFile();
+                const content = await file.text();
+                
+                currentFileHandle = fileHandle;
+                currentFileName = fileName;
+                lastContent = content;
+                editor.value = content;
+                updateCurrentFileLabel(fileName);
+                highlightFileItem(fileName);
+                updateCurrentFileFunction();
+                setStatus(`📂 已加载 ${fileName}`);
+                
+            } catch (err) {
+                console.error('打开文件失败', err);
+                setStatus('打开文件失败', true);
+                showToast('打开文件失败: ' + err.message);
+            }
+        };
+
+        async function saveCurrentFile() {
+            if (!currentFileHandle) {
+                if (editor.value.trim()) {
+                    await createNewFileWithContent(editor.value);
+                } else {
+                    showToast('没有打开的文件');
+                }
+                return;
+            }
+            
+            const content = editor.value;
+            try {
+                const writable = await currentFileHandle.createWritable();
+                await writable.write(content);
+                await writable.close();
+                lastContent = content;
+                setStatus(`💾 已保存 ${currentFileName}`);
+                if (!fileList.includes(currentFileName)) {
+                    await refreshFileList();
+                }
+            } catch (err) {
+                console.error('保存失败', err);
+                setStatus('❌ 保存失败', true);
+                showToast('保存失败: ' + err.message);
+            }
+        }
+
+        function scheduleAutoSave() {
+            if (autoSaveTimer) clearTimeout(autoSaveTimer);
+            setStatus('⏳ 等待保存...');
+            autoSaveTimer = setTimeout(async () => {
+                if (editor.value !== lastContent) {
+                    await saveCurrentFile();
+                } else {
+                    setStatus('✅ 内容未变');
+                }
+            }, 1000);
+        }
+
+        async function createNewFileWithContent(initialContent = '') {
+            if (!workspaceDirHandle) {
+                showToast('请先选择工作目录');
+                return;
+            }
+            
+            const defaultName = `新建文档_${new Date().toISOString().slice(0,19).replace(/:/g, '-')}.md`;
+            let fileName = prompt('输入文件名 (包含.md扩展名):', defaultName);
+            if (!fileName) return;
+            if (!fileName.endsWith('.md')) fileName += '.md';
+            
+            try {
+                const fileHandle = await workspaceDirHandle.getFileHandle(fileName, { create: true });
+                const writable = await fileHandle.createWritable();
+                const content = initialContent || `# ${fileName}\n\n开始编辑...`;
+                await writable.write(content);
+                await writable.close();
+                
+                await refreshFileList();
+                await window.selectFileByName(fileName);
+                setStatus(`✨ 已创建 ${fileName}`);
+                showToast(`✅ 已创建 ${fileName}`);
+            } catch (err) {
+                showToast('创建失败: ' + err.message);
+            }
+        }
+
+        async function handleCreateNew() {
+            await createNewFileWithContent('');
+        }
+
+        async function handleManualSave() {
+            if (autoSaveTimer) clearTimeout(autoSaveTimer);
+            await saveCurrentFile();
+        }
+
+        function onEditorInput() {
+            if (currentFileHandle) {
+                scheduleAutoSave();
+            } else {
+                setStatus('📁 请先打开或新建文件');
+            }
+        }
+
+        function setupFolderToggle() {
+            // 我的文档文件夹
+            const mainHeader = document.getElementById('mainFolderToggle');
+            const mainChildren = document.getElementById('fileListContainer');
+            mainHeader.addEventListener('click', () => {
+                mainHeader.classList.toggle('collapsed');
+                mainChildren.style.display = mainHeader.classList.contains('collapsed') ? 'none' : 'block';
+            });
+            
+            // 系统配置文件夹
+            const configHeader = document.getElementById('configFolderToggle');
+            const configChildren = document.getElementById('configListContainer');
+            configHeader.addEventListener('click', () => {
+                configHeader.classList.toggle('collapsed');
+                configChildren.style.display = configHeader.classList.contains('collapsed') ? 'none' : 'block';
+            });
+            
+            // 数据操作文件夹
+            const dataOpHeader = document.getElementById('dataOpFolderToggle');
+            const dataOpChildren = document.getElementById('dataOpListContainer');
+            dataOpHeader.addEventListener('click', () => {
+                dataOpHeader.classList.toggle('collapsed');
+                dataOpChildren.style.display = dataOpHeader.classList.contains('collapsed') ? 'none' : 'block';
+            });
+        }
+        
+        // 打开配置面板
+        window.openConfigPanel = function(panelType) {
+            const editor = document.getElementById('editor');
+            const contentArea = document.querySelector('.right-pane');
+            
+            // 隐藏编辑器，显示配置面板
+            editor.style.display = 'none';
+            
+            // 检查是否已存在配置面板容器
+            let configPanel = document.getElementById('configPanelContainer');
+            if (!configPanel) {
+                configPanel = document.createElement('div');
+                configPanel.id = 'configPanelContainer';
+                configPanel.className = 'config-panel-container';
+                contentArea.appendChild(configPanel);
+            }
+            
+            // 渲染对应面板
+            switch(panelType) {
+                case 'function-config':
+                    configPanel.innerHTML = renderFunctionConfigPanel();
+                    break;
+                case 'ui-config':
+                    configPanel.innerHTML = renderUIConfigPanel();
+                    break;
+                case 'data-config':
+                    configPanel.innerHTML = renderDataConfigPanel();
+                    break;
+            }
+            
+            // 隐藏Tab栏
+            document.getElementById('mainTabBar').classList.add('hidden');
+            document.getElementById('mainTabContent').style.display = 'none';
+        };
+        
+        // 渲染函数配置面板
+        function renderFunctionConfigPanel() {
+            if (!appConfigManager) return '<div class="empty-state">请先连接工作区</div>';
+            
+            const config = appConfigManager.config.functionConfig;
+            let html = `
+                <div class="config-panel">
+                    <h3 class="config-title">📊 函数模板配置</h3>
+                    
+                    <div class="config-section">
+                        <h4>操作模板（点击快速按钮启用/禁用）</h4>
+                        <div class="template-grid">
+            `;
+            
+            config.templates.forEach(tpl => {
+                const isQuick = config.quickButtons.includes(tpl.id);
+                const typeLabels = { add: '+', sub: '-', mul: '×', div: '÷', set: '→' };
+                html += `
+                    <div class="template-card ${isQuick ? 'active' : ''}" data-id="${tpl.id}" onclick="toggleQuickButton('${tpl.id}')">
+                        <div class="template-icon" style="background:${tpl.color}20; color:${tpl.color}">${tpl.icon}</div>
+                        <div class="template-info">
+                            <div class="template-name">${tpl.name}</div>
+                            <div class="template-type">${typeLabels[tpl.type]} ${tpl.value}</div>
+                        </div>
+                        <div class="template-check">${isQuick ? '✓' : ''}</div>
+                    </div>
+                `;
+            });
+            
+            html += `
+                        </div>
+                        <button class="btn" onclick="showAddTemplateDialog()">➕ 添加模板</button>
+                    </div>
+                    
+                    <div class="config-section">
+                        <h4>默认设置</h4>
+                        <label class="config-label">
+                            新文件初始值：
+                            <input type="number" id="defaultInitialValue" value="${config.defaults.initialValue}" min="0">
+                        </label>
+                        <label class="config-label">
+                            <input type="checkbox" id="autoSave" ${config.defaults.autoSave ? 'checked' : ''}>
+                            自动保存
+                        </label>
+                        <label class="config-label">
+                            历史记录保留条数：
+                            <input type="number" id="maxHistoryItems" value="${config.defaults.maxHistoryItems}" min="1" max="1000">
+                        </label>
+                    </div>
+                    
+                    <div class="config-actions">
+                        <button class="btn btn-primary" onclick="saveFunctionConfig()">💾 保存配置</button>
+                        <button class="btn" onclick="closeConfigPanel()">关闭</button>
+                    </div>
+                </div>
+            `;
+            return html;
+        }
+        
+        // 渲染界面设置面板
+        function renderUIConfigPanel() {
+            if (!appConfigManager) return '<div class="empty-state">请先连接工作区</div>';
+            
+            const ui = appConfigManager.config.uiConfig;
+            let html = `
+                <div class="config-panel">
+                    <h3 class="config-title">🎨 界面设置</h3>
+                    
+                    <div class="config-section">
+                        <h4>主题</h4>
+                        <select id="themeSelect" class="config-select">
+                            <option value="light" ${ui.theme === 'light' ? 'selected' : ''}>浅色</option>
+                            <option value="dark" ${ui.theme === 'dark' ? 'selected' : ''}>深色</option>
+                        </select>
+                    </div>
+                    
+                    <div class="config-section">
+                        <h4>编辑器</h4>
+                        <label class="config-label">
+                            字体大小：
+                            <input type="range" id="fontSize" min="12" max="20" value="${ui.fontSize}" onchange="document.getElementById('fontSizeValue').textContent = this.value + 'px'">
+                            <span id="fontSizeValue">${ui.fontSize}px</span>
+                        </label>
+                    </div>
+                    
+                    <div class="config-section">
+                        <h4>显示选项</h4>
+                        <label class="config-label">
+                            <input type="checkbox" id="showFileFunctionBadge" ${ui.showFileFunctionBadge ? 'checked' : ''}>
+                            显示文件函数数量角标
+                        </label>
+                        <label class="config-label">
+                            默认页签：
+                            <select id="defaultTab" class="config-select">
+                                <option value="content" ${ui.defaultTab === 'content' ? 'selected' : ''}>内容</option>
+                                <option value="function" ${ui.defaultTab === 'function' ? 'selected' : ''}>函数</option>
+                            </select>
+                        </label>
+                    </div>
+                    
+                    <div class="config-actions">
+                        <button class="btn btn-primary" onclick="saveUIConfig()">💾 保存设置</button>
+                        <button class="btn" onclick="closeConfigPanel()">关闭</button>
+                    </div>
+                </div>
+            `;
+            return html;
+        }
+        
+        // 渲染数据管理面板
+        function renderDataConfigPanel() {
+            let html = `
+                <div class="config-panel">
+                    <h3 class="config-title">💾 数据管理</h3>
+                    
+                    <div class="config-section">
+                        <h4>统计概览</h4>
+                        <div class="stats-overview">
+                            <div class="stat-card">
+                                <div class="stat-value" id="totalFuncCount">0</div>
+                                <div class="stat-label">总函数数</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-value" id="totalFileCount">0</div>
+                                <div class="stat-label">文件数</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="config-section">
+                        <h4>数据操作</h4>
+                        <button class="btn btn-warning" onclick="resetAllFunctionCounts()">🔄 重置所有计数</button>
+                        <p style="font-size:12px; color:#94a3b8; margin-top:8px;">注意：此操作将清空所有文件的函数计数，但保留历史记录</p>
+                    </div>
+                    
+                    <div class="config-actions">
+                        <button class="btn" onclick="closeConfigPanel()">关闭</button>
+                    </div>
+                </div>
+            `;
+            return html;
+        }
+        
+        // 切换快速按钮
+        window.toggleQuickButton = function(templateId) {
+            if (!appConfigManager) return;
+            
+            const config = appConfigManager.config.functionConfig;
+            const index = config.quickButtons.indexOf(templateId);
+            
+            if (index > -1) {
+                config.quickButtons.splice(index, 1);
+            } else {
+                config.quickButtons.push(templateId);
+            }
+            
+            // 重新渲染面板
+            const panel = document.getElementById('configPanelContainer');
+            if (panel) {
+                panel.innerHTML = renderFunctionConfigPanel();
+            }
+        };
+        
+        // 添加模板对话框
+        window.showAddTemplateDialog = function() {
+            const html = `
+                <div class="modal-overlay" onclick="closeModal()">
+                    <div class="modal-content" onclick="event.stopPropagation()">
+                        <h3>➕ 添加新模板</h3>
+                        <div class="modal-form">
+                            <label>名称：<input type="text" id="newTplName" placeholder="如：+500"></label>
+                            <label>类型：
+                                <select id="newTplType">
+                                    <option value="add">加 (add)</option>
+                                    <option value="sub">减 (sub)</option>
+                                    <option value="mul">乘 (mul)</option>
+                                    <option value="div">除 (div)</option>
+                                    <option value="set">设值 (set)</option>
+                                </select>
+                            </label>
+                            <label>值：<input type="number" id="newTplValue" placeholder="数值"></label>
+                            <label>颜色：<input type="color" id="newTplColor" value="#2563eb"></label>
+                            <label>图标：<input type="text" id="newTplIcon" placeholder="如：📊" value="📊"></label>
+                        </div>
+                        <div class="modal-actions">
+                            <button class="btn btn-primary" onclick="addNewTemplate()">添加</button>
+                            <button class="btn" onclick="closeModal()">取消</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            const modal = document.createElement('div');
+            modal.id = 'modalContainer';
+            modal.innerHTML = html;
+            document.body.appendChild(modal);
+        };
+        
+        window.closeModal = function() {
+            const modal = document.getElementById('modalContainer');
+            if (modal) modal.remove();
+        };
+        
+        window.addNewTemplate = function() {
+            if (!appConfigManager) return;
+            
+            const name = document.getElementById('newTplName').value;
+            const type = document.getElementById('newTplType').value;
+            const value = parseInt(document.getElementById('newTplValue').value);
+            const color = document.getElementById('newTplColor').value;
+            const icon = document.getElementById('newTplIcon').value;
+            
+            if (!name || isNaN(value)) {
+                showToast('请填写完整信息');
+                return;
+            }
+            
+            const id = type + '_' + value + '_' + Date.now();
+            appConfigManager.config.functionConfig.templates.push({
+                id, name, type, value, color, icon
+            });
+            
+            appConfigManager.saveConfig(appConfigManager.config);
+            closeModal();
+            
+            const panel = document.getElementById('configPanelContainer');
+            if (panel) panel.innerHTML = renderFunctionConfigPanel();
+            
+            showToast('✅ 模板已添加');
+        };
+        
+        // 保存函数配置
+        window.saveFunctionConfig = async function() {
+            if (!appConfigManager) return;
+            
+            const config = appConfigManager.config;
+            config.functionConfig.defaults.initialValue = parseInt(document.getElementById('defaultInitialValue').value) || 0;
+            config.functionConfig.defaults.autoSave = document.getElementById('autoSave').checked;
+            config.functionConfig.defaults.maxHistoryItems = parseInt(document.getElementById('maxHistoryItems').value) || 100;
+            
+            await appConfigManager.saveConfig(config);
+            showToast('✅ 配置已保存');
+        };
+        
+        // 保存界面配置
+        window.saveUIConfig = async function() {
+            if (!appConfigManager) return;
+            
+            const config = appConfigManager.config;
+            config.uiConfig.theme = document.getElementById('themeSelect').value;
+            config.uiConfig.fontSize = parseInt(document.getElementById('fontSize').value);
+            config.uiConfig.showFileFunctionBadge = document.getElementById('showFileFunctionBadge').checked;
+            config.uiConfig.defaultTab = document.getElementById('defaultTab').value;
+            
+            await appConfigManager.saveConfig(config);
+            applyUIConfig();
+            showToast('✅ 设置已保存');
+        };
+        
+        // 应用界面配置
+        function applyUIConfig() {
+            if (!appConfigManager) return;
+            const ui = appConfigManager.config.uiConfig;
+            
+            const editor = document.getElementById('editor');
+            if (editor) {
+                editor.style.fontSize = ui.fontSize + 'px';
+                editor.style.fontFamily = ui.editorFontFamily;
+            }
+        };
+        
+        // 关闭配置面板
+        window.closeConfigPanel = function() {
+            const editor = document.getElementById('editor');
+            const configPanel = document.getElementById('configPanelContainer');
+            
+            if (editor) editor.style.display = 'block';
+            if (configPanel) configPanel.remove();
+            
+            // 显示Tab栏
+            document.getElementById('mainTabBar').classList.remove('hidden');
+            document.getElementById('mainTabContent').style.display = 'block';
+        };
+        
+        // 导出配置
+        window.exportConfig = function() {
+            if (!appConfigManager) {
+                showToast('请先连接工作区');
+                return;
+            }
+            
+            const config = appConfigManager.config;
+            const blob = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `config_backup_${new Date().toISOString().slice(0,10)}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+            showToast('✅ 配置已导出');
+        };
+        
+        // 重置数据
+        window.resetData = function() {
+            if (!confirm('确定要重置所有数据吗？此操作不可恢复！')) return;
+            
+            functionData = {};
+            saveFunctionData();
+            updateSummary();
+            updateFileListWithFuncCount();
+            showToast('✅ 数据已重置');
+        };
+        
+        // 重置所有函数计数
+        window.resetAllFunctionCounts = function() {
+            if (!confirm('确定要重置所有函数计数吗？')) return;
+            
+            Object.keys(functionData).forEach(fileName => {
+                functionData[fileName].count = 0;
+            });
+            
+            saveFunctionData();
+            updateCurrentFileFunction();
+            showToast('✅ 所有计数已重置');
+        };
+
+        // 页签切换
+        function setupTabs() {
+            const tabs = document.querySelectorAll('.tab-item');
+            const panes = document.querySelectorAll('.tab-pane');
+            
+            tabs.forEach(tab => {
+                tab.addEventListener('click', () => {
+                    const targetTab = tab.dataset.tab;
+                    switchToTab(targetTab);
+                });
+            });
+        }
+        
+        // 切换到指定Tab
+        function switchToTab(targetTab) {
+            const tabs = document.querySelectorAll('.tab-item');
+            const panes = document.querySelectorAll('.tab-pane');
+            
+            tabs.forEach(t => t.classList.remove('active'));
+            panes.forEach(p => p.classList.remove('active'));
+            
+            const targetTabEl = document.querySelector(`.tab-item[data-tab="${targetTab}"]`);
+            const targetPaneEl = document.getElementById(`tab-${targetTab}`);
+            
+            if (targetTabEl) targetTabEl.classList.add('active');
+            if (targetPaneEl) targetPaneEl.classList.add('active');
+        }
+
+        async function initialize() {
+            // 不再使用 IndexedDB，直接初始化工作区
+            
+            setupFolderToggle();
+            setupTabs();
+            
+            // 绑定事件
+            workspaceSelector.addEventListener('click', handleSelectWorkspace);
+            restoreWorkspaceBtn.addEventListener('click', restoreWorkspace);
+            editor.addEventListener('input', onEditorInput);
+            manualSaveBtn.addEventListener('click', handleManualSave);
+            createNewFileBtn.addEventListener('click', handleCreateNew);
+            refreshDirBtn.addEventListener('click', async () => {
+                if (!workspaceDirHandle) {
+                    showToast('请先恢复或选择工作目录');
+                    return;
+                }
+                await refreshFileList();
+                setStatus('🔄 列表已刷新');
+            });
+            
+            // 函数相关事件 - 快速按钮通过 renderQuickButtons 渲染
+            setInitialBtn.addEventListener('click', () => {
+                const value = parseInt(initialFuncInput.value);
+                if (!isNaN(value) && value >= 0) {
+                    setInitialCount(value);
+                } else {
+                    showToast('请输入有效的数字', 1500);
+                }
+            });
+            
+            window.addEventListener('keydown', (e) => {
+                if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+                    e.preventDefault();
+                    handleManualSave();
+                }
+            });
+
+            await initializeWorkspace();
+        }
+
+        initialize().catch(console.error);
+    })();
+</script>
+</body>
 </html>
